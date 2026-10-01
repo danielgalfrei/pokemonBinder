@@ -1,0 +1,31 @@
+# Dependencias y builds (por si se añade tooling de Node más adelante)
+node_modules/
+dist/
+build/
+
+# Python (el servidor local de start.sh)
+__pycache__/
+*.pyc
+.venv/
+
+# Logs y temporales
+*.log
+*.tmp
+.cache/
+
+# Variables de entorno
+.env
+.env.*
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores / IDE
+.idea/
+.vscode/
+*.swp
+
+# Claude Code (configuración local)
+.claude/settings.local.json
