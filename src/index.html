@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>pokemonBinder</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>pokemon<span>Binder</span></h1>
+    <div id="status" class="status">Cargando cartas…</div>
+  </header>
+
+  <main class="album">
+    <button id="prev" class="nav" aria-label="Página anterior">‹</button>
+    <section id="book" class="book closed"></section>
+    <button id="next" class="nav" aria-label="Página siguiente">›</button>
+  </main>
+
+  <footer class="controls">
+    <span id="indicator"></span>
+    <button id="add-page">+ Añadir página</button>
+  </footer>
+
+  <div id="picker" class="picker" hidden>
+    <input id="picker-input" type="text" placeholder="Busca por nombre de carta…" autocomplete="off">
+    <div id="picker-filters" class="picker-filters"></div>
+    <ul id="picker-list" role="listbox"></ul>
+    <div id="picker-count" class="picker-count"></div>
+  </div>
+
+  <div id="zoom" class="zoom" hidden>
+    <div id="zoom-card" class="zoom-card"><img alt=""></div>
+    <div class="zoom-actions">
+      <button id="zoom-change">Cambiar</button>
+      <button id="zoom-remove" class="danger">Quitar</button>
+    </div>
+    <button id="zoom-close" class="zoom-close" aria-label="Cerrar">✕</button>
+    <p class="zoom-hint"><span class="hint-mouse">Mueve el ratón para inclinar · ESC para volver</span><span class="hint-touch">Desliza el dedo para inclinar · toca fuera para volver</span></p>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
