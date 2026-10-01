@@ -19,27 +19,38 @@ const spreadPages = view => [2 * view - 3, 2 * view - 2].map(i => (i >= 0 && i <
 const mobilePosOfView = view => (view === 0 ? 0 : Math.max(1, 2 * view - 2));
 let mPos = mobilePosOfView(album.view);
 
+// Cada modo describe cómo se lee/escribe la posición y qué se muestra; render y go no ramifican por modo.
+const modes = {
+  mobile: {
+    get: () => mPos,
+    set: v => { mPos = v; album.view = v === 0 ? 0 : viewOfPage(v - 1); },
+    last: () => album.pages.length,
+    content: direction => singlePage(mPos - 1, direction),
+    label: () => `Página ${mPos} de ${album.pages.length}`,
+  },
+  desktop: {
+    get: () => album.view,
+    set: v => { album.view = v; },
+    last: lastView,
+    content: spread,
+    label: () => {
+      const pages = spreadPages(album.view).filter(i => i !== null).map(i => i + 1);
+      return `Página${pages.length > 1 ? 's' : ''} ${pages.join('–')} de ${album.pages.length}`;
+    },
+  },
+};
+const mode = () => (isMobile() ? modes.mobile : modes.desktop);
+
 function render(direction = 0) {
-  let label, atStart, atEnd;
-  if (isMobile()) {
-    mPos = Math.max(0, Math.min(mPos, album.pages.length));
-    album.view = mPos === 0 ? 0 : viewOfPage(mPos - 1);
-    bookEl.replaceChildren(mPos === 0 ? cover() : singlePage(mPos - 1, direction));
-    label = mPos === 0 ? null : `Página ${mPos} de ${album.pages.length}`;
-    atStart = mPos === 0;
-    atEnd = mPos === album.pages.length;
-  } else {
-    album.view = Math.max(0, Math.min(album.view, lastView()));
-    bookEl.replaceChildren(album.view === 0 ? cover() : spread(direction));
-    const pages = album.view === 0 ? [] : spreadPages(album.view).filter(i => i !== null).map(i => i + 1);
-    label = pages.length ? `Página${pages.length > 1 ? 's' : ''} ${pages.join('–')} de ${album.pages.length}` : null;
-    atStart = album.view === 0;
-    atEnd = album.view === lastView();
-  }
-  bookEl.className = `book ${album.view === 0 ? 'closed' : 'open'}`;
-  $('indicator').textContent = label ?? `Portada · ${album.pages.length} página${album.pages.length > 1 ? 's' : ''}`;
-  $('prev').disabled = atStart;
-  $('next').disabled = atEnd;
+  const m = mode();
+  m.set(Math.max(0, Math.min(m.get(), m.last())));
+  const isCover = m.get() === 0;
+  bookEl.replaceChildren(isCover ? cover() : m.content(direction));
+  bookEl.className = `book ${isCover ? 'closed' : 'open'}`;
+  const total = album.pages.length;
+  $('indicator').textContent = isCover ? `Portada · ${total} página${total > 1 ? 's' : ''}` : m.label();
+  $('prev').disabled = isCover;
+  $('next').disabled = m.get() === m.last();
   saveAlbum(album);
 }
 
@@ -96,28 +107,31 @@ function pageEl(pageIdx) {
 function slot(card, pageIdx, index) {
   const el = document.createElement('div');
   el.className = 'slot' + (card ? ' filled' : '');
-  if (card) {
-    el.innerHTML = '<img alt=""><div class="slot-actions"><button data-a="change">Cambiar</button><button data-a="remove" class="danger">Quitar</button></div>';
-    const img = el.querySelector('img');
-    img.src = cardImage(card, 'high');
-    img.alt = card.name;
-    img.title = `${card.name} · ${card.setName}`;
-    el.addEventListener('click', e => {
-      const action = e.target.dataset.a;
-      if (action === 'remove') setCard(pageIdx, index, null);
-      else if (action === 'change') choose(el, pageIdx, index);
-      else openZoom(card, {
-        onChange: () => { closeZoom(); choose(el, pageIdx, index); },
-        onRemove: () => { closeZoom(); setCard(pageIdx, index, null); },
-      });
-    });
-  } else {
-    el.innerHTML = '<span>+ Elegir carta</span>';
-    el.tabIndex = 0;
-    el.addEventListener('click', () => choose(el, pageIdx, index));
-    el.addEventListener('keydown', e => { if (e.key === 'Enter') choose(el, pageIdx, index); });
-  }
+  (card ? fillSlot : emptySlot)(el, card, pageIdx, index);
   return el;
+}
+
+function fillSlot(el, card, pageIdx, index) {
+  el.innerHTML = '<img alt=""><div class="slot-actions"><button data-a="change">Cambiar</button><button data-a="remove" class="danger">Quitar</button></div>';
+  const img = el.querySelector('img');
+  img.src = cardImage(card, 'high');
+  img.alt = card.name;
+  img.title = `${card.name} · ${card.setName}`;
+  const change = () => choose(el, pageIdx, index);
+  const remove = () => setCard(pageIdx, index, null);
+  const zoom = () => openZoom(card, {
+    onChange: () => { closeZoom(); change(); },
+    onRemove: () => { closeZoom(); remove(); },
+  });
+  const actions = { change, remove };
+  el.addEventListener('click', e => (actions[e.target.dataset.a] ?? zoom)());
+}
+
+function emptySlot(el, card, pageIdx, index) {
+  el.innerHTML = '<span>+ Elegir carta</span>';
+  el.tabIndex = 0;
+  el.addEventListener('click', () => choose(el, pageIdx, index));
+  el.addEventListener('keydown', e => { if (e.key === 'Enter') choose(el, pageIdx, index); });
 }
 
 function choose(el, pageIdx, index) {
@@ -133,15 +147,10 @@ function setCard(pageIdx, index, card) {
 
 function go(delta) {
   picker?.close();
-  if (isMobile()) {
-    const next = mPos + delta;
-    if (next < 0 || next > album.pages.length) return;
-    mPos = next;
-  } else {
-    const next = album.view + delta;
-    if (next < 0 || next > lastView()) return;
-    album.view = next;
-  }
+  const m = mode();
+  const next = m.get() + delta;
+  if (next < 0 || next > m.last()) return;
+  m.set(next);
   render(delta);
 }
 
